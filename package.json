@@ -1,7 +1,7 @@
 {
-  "name": "easymcp",
+  "name": "@easymcp/easymcp",
   "version": "0.1.0",
-  "description": "MCP shim for connecting Claude Desktop to hosted MCP servers",
+  "description": "MCP shim for connecting Claude Desktop to hosted MCP servers (easymcp.net)",
   "main": "dist/index.js",
   "bin": {
     "easymcp": "dist/cli.js"
@@ -22,16 +22,16 @@
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "@types/node": "^20.9.0",
     "@types/jest": "^29.5.8",
+    "@types/node": "^20.9.0",
     "@types/yargs": "^17.0.24",
-    "typescript": "^5.2.2",
-    "ts-node-dev": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "eslint": "^8.53.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
-    "eslint": "^8.53.0",
-    "@typescript-eslint/eslint-plugin": "^6.10.0",
-    "@typescript-eslint/parser": "^6.10.0"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -42,6 +42,11 @@
     "ai",
     "model-context-protocol"
   ],
-  "author": "",
-  "license": "MIT"
-} 
+  "author": "easymcp.net",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/easymcp/easymcp.git"
+  },
+  "homepage": "https://easymcp.net"
+}
