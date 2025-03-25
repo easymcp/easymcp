@@ -23,7 +23,6 @@ EasyMCP is a turnkey solution that lets Claude Desktop and Cursor access externa
 {
     "mcpServers": {
       "EasyMCP.net": {
-        "type": "stdio",
         "command": "npx",
         "args": ["@easymcp/easymcp", "--token=YOUR_TOKEN"]
       }

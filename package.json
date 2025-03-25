@@ -1,6 +1,6 @@
 {
   "name": "@easymcp/easymcp",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "MCP shim for connecting Claude Desktop to hosted MCP servers (easymcp.net)",
   "main": "dist/index.js",
   "bin": {
