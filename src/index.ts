@@ -4,14 +4,21 @@ import axios from 'axios';
 interface McpShimOptions {
   token: string;
   debug: boolean;
+  env: 'dev' | 'prod';
 }
+
+// Add environment configuration
+const ENV_CONFIG = {
+  dev: 'http://localhost:3000',
+  prod: 'https://api.easymcp.net'
+} as const;
 
 /**
  * Starts the MCP shim that forwards messages between Claude Desktop and the hosted MCP server
  */
 export async function startMcpShim(options: McpShimOptions): Promise<void> {
-  const { token, debug } = options;
-  const serverUrl = 'http://localhost:3000'; // Hard-coded server URL
+  const { token, debug, env } = options;
+  const serverUrl = ENV_CONFIG[env];
   
   // Setup logging
   const log = (message: string): void => {
