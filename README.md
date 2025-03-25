@@ -17,7 +17,7 @@ EasyMCP is a turnkey solution that lets Claude Desktop and Cursor access externa
 ## Getting Started
 
 1. Get your token at [easymcp.net](https://easymcp.net)
-2. Add to Claude Desktop and/or Cursor in two simple steps:
+2. Just add this config to Claude Desktop and/or Cursor:
 
 ```json
 {
