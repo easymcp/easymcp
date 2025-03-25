@@ -49,7 +49,8 @@ EasyMCP acts as a bridge between Claude Desktop and our secure cloud infrastruct
 
 EasyMCP gives you granular control over which tools Claude can access. For each third-party integration, you can:
 
-- Enable only the specific functions you need
+- Pick specific 3rd party services you want to integrate with
+- Enable only the specific functions you want to use
 - Control read/write permissions independently (e.g., allow reading emails but not sending them)
 - Manage authentication for each service separately
 
