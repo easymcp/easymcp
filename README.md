@@ -4,12 +4,12 @@ The simplest way to connect Claude Desktop and Cursor to external tools and serv
 
 ## What is EasyMCP?
 
-EasyMCP is a turnkey solution that lets Claude Desktop access powerful external tools and APIs with zero configuration. Stop struggling with complex MCP server setup and get instant access to a growing library of tools.
+EasyMCP is a turnkey solution that lets Claude Desktop and Cursor access external tools and APIs with zero configuration that you have to do.
 
 ## Why Use EasyMCP?
 
 - **Simple**: One command to install, zero configuration required
-- **Powerful**: Instant access to search, email, weather, and more tools
+- **Powerful**: Easy access to search, email, weather, and more tools
 - **Secure**: Your credentials are stored securely in the cloud
 - **Reliable**: Professionally maintained infrastructure
 - **Expandable**: New tools and integrations added regularly
@@ -31,18 +31,31 @@ EasyMCP is a turnkey solution that lets Claude Desktop access powerful external 
 }
 ```
 
-That's it! Claude will now have access to all services included in your plan.
+That's it! Claude Desktop and Cursor will now have access to all services included in your plan.
 
-## Benefits
+## Compatibility
 
-- **Saves Time**: Skip the complicated setup of local MCP servers
-- **Future-Proof**: Automatically updated with new tools and features
-- **Cross-Platform**: Works on Windows, Mac, and Linux
-- **Low Resource Usage**: Minimal local footprint
+EasyMCP works with systems that support the Model Context Protocol (MCP):
+
+- **Claude Desktop**: The official desktop application from Anthropic
+- **Cursor**: An AI-powered code editor with Claude integration
+
+Currently, these are the only systems that support MCP servers. As more applications adopt MCP, EasyMCP will be compatible with them as well.
 
 ## How It Works
 
-EasyMCP acts as a bridge between Claude Desktop and our secure cloud infrastructure. When Claude needs to use a tool, the request is securely forwarded to our servers where the actual processing happens.
+EasyMCP acts as a bridge between Claude Desktop and our secure cloud infrastructure running several MCP servers. When Claude needs to use a tool, the request is securely forwarded to our servers where the actual processing happens.
+
+### Customizable Tool Access
+
+EasyMCP gives you granular control over which tools Claude can access. For each third-party integration, you can:
+
+- Enable only the specific functions you need
+- Control read/write permissions independently (e.g., allow reading emails but not sending them)
+- Set usage limits for specific tools
+- Manage authentication for each service separately
+
+This flexibility ensures Claude has access to exactly the tools you want - nothing more, nothing less.
 
 ## Plans and Pricing
 
