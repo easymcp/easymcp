@@ -1,6 +1,6 @@
 {
   "name": "@easymcp/easymcp",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "MCP shim for connecting Claude Desktop to hosted MCP servers (easymcp.net)",
   "main": "dist/index.js",
   "bin": {
@@ -43,7 +43,7 @@
     "model-context-protocol"
   ],
   "author": "easymcp.net",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/easymcp/easymcp.git"

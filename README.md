@@ -1,6 +1,6 @@
 # EasyMCP
 
-The simplest way to connect Claude Desktop and Cursor to external tools and services.
+The simplest way to connect Claude Desktop and Cursor to external tools and services using MCP (Model Context Protocol) servers.
 
 ## What is EasyMCP?
 
@@ -68,4 +68,4 @@ Need help? Visit [easymcp.net/support](https://easymcp.net/support)
 
 ## License
 
-All rights reserved. This software is proprietary and may not be copied, modified, or distributed without authorization.
+MIT
