@@ -8,18 +8,14 @@ import { startMcpShim, ErrorType, McpError } from './index.js';
  * EasyMCP CLI - A tool for connecting Claude Desktop to your services
  * 
  * Usage: 
- *   npx @easymcp/easymcp --token=YOUR_TOKEN [--debug] [--env=prod|dev]
+ *   npx @easymcp/easymcp [--debug] [--env=prod|dev]
+ *   
+ * Environment Variables:
+ *   EASYMCP_TOKEN - API token for authentication (required)
  */
 
 // Parse command line arguments
 const argv = yargs(hideBin(process.argv))
-  .option('token', {
-    alias: 't',
-    type: 'string',
-    description: 'API token for authentication',
-    default: 'test-token',
-    demandOption: true
-  })
   .option('debug', {
     alias: 'd',
     type: 'boolean',
@@ -37,8 +33,32 @@ const argv = yargs(hideBin(process.argv))
   .alias('help', 'h')
   .parseSync();
 
+// Get token from environment variable
+const token = process.env.EASYMCP_TOKEN;
+
+// Check if token is provided
+if (!token) {
+  console.error('\n❌ Authentication Error: No token provided');
+  console.error('EASYMCP_TOKEN environment variable is required.');
+  console.error('\nPlease set the environment variable in your MCP server configuration:');
+  console.error(`
+{
+  "mcpServers": {
+    "EasyMCP.net": {
+      "command": "npx",
+      "args": ["@easymcp/easymcp"],
+      "env": {
+        "EASYMCP_TOKEN": "your_token"
+      }
+    }
+  }
+}`);
+  console.error('\nFor more information, visit: https://console.easymcp.net/tokens\n');
+  process.exit(1);
+}
+
 // Mask token in logs for security
-const maskedToken = maskToken(argv.token);
+const maskedToken = maskToken(token);
 console.error(`Starting EasyMCP with token: ${maskedToken} (${argv.debug ? 'debug mode' : 'normal mode'}, environment: ${argv.env})`);
 
 // Show helpful message in debug mode
@@ -52,7 +72,7 @@ if (argv.debug) {
 
 // Start the MCP shim
 startMcpShim({
-  token: argv.token,
+  token,
   debug: argv.debug,
   env: argv.env as 'dev' | 'prod'
 }).catch(error => {
