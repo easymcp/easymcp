@@ -4,6 +4,7 @@ import axios from 'axios';
 interface McpShimOptions {
   token: string;
   debug: boolean;
+  server?: string;
 }
 
 /**
@@ -11,7 +12,7 @@ interface McpShimOptions {
  */
 export async function startMcpShim(options: McpShimOptions): Promise<void> {
   const { token, debug } = options;
-  const serverUrl = 'https://api.easymcp.net';
+  const serverUrl = options.server || 'http://localhost:3000';
   
   // Setup logging
   const log = (message: string): void => {
@@ -37,6 +38,7 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
   });
   
   log("MCP shim started");
+  log(`Connecting to server: ${serverUrl}`);
   
   // Add immediately to prevent early exits
   process.stdin.resume(); // Keep process alive even when stdin ends
@@ -66,7 +68,7 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
         return;
       }
       
-      // Handle initialize method according to schema
+      // Special case for initialize - we'll handle it ourselves for efficiency
       if (message.method === 'initialize') {
         const initializeResponse = {
           jsonrpc: '2.0',
@@ -87,154 +89,60 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
         return;
       }
       
-      // Handle tools/list according to schema
-      if (message.method === 'tools/list') {
-        const toolsResponse = {
-          jsonrpc: '2.0',
-          id: message.id,
-          result: {
-            tools: [
-              {
-                name: 'web_search',
-                description: 'Search the web for information',
-                inputSchema: {
-                  type: 'object',
-                  properties: {
-                    query: {
-                      type: 'string',
-                      description: 'Search query'
-                    }
-                  },
-                  required: ['query']
-                }
-              }
-            ]
-          }
-        };
-        process.stdout.write(`${JSON.stringify(toolsResponse)}\n`);
-        log('Sent tools list response');
-        return;
-      }
-      
-      // Handle tool/invoke according to schema
-      if (message.method === 'tools/call') {
-        const toolResult = {
-          jsonrpc: '2.0',
-          id: message.id,
-          result: {
-            content: [
-              {
-                type: 'text',
-                text: `Mock result for ${message.params?.name} with query: ${message.params?.arguments?.query || "unknown"}`
-              }
-            ]
-          }
-        };
-        process.stdout.write(`${JSON.stringify(toolResult)}\n`);
-        log('Sent tool invoke response');
-        return;
-      }
-      
-      // Handle prompts/list
-      if (message.method === 'prompts/list') {
-        const promptsResponse = {
-          jsonrpc: '2.0',
-          id: message.id,
-          result: {
-            prompts: [] // Empty list is fine for now
-          }
-        };
-        process.stdout.write(`${JSON.stringify(promptsResponse)}\n`);
-        log('Sent empty prompts list response');
-        return;
-      }
-      
-      // Handle resources/list
-      if (message.method === 'resources/list') {
-        const resourcesResponse = {
-          jsonrpc: '2.0',
-          id: message.id,
-          result: {
-            resources: [] // Empty list is fine for now
-          }
-        };
-        process.stdout.write(`${JSON.stringify(resourcesResponse)}\n`);
-        log('Sent empty resources list response');
-        return;
-      }
-      
       try {
-        // Forward other methods to your API
-        const response = await api.post('', message);
+        // Forward all other requests to the server
+        log(`Forwarding ${message.method} request to server`);
+        const response = await api.post('/json-rpc', message);
         
-        // Define the full response upfront with empty result
-        const jsonRpcResponse = {
-          jsonrpc: '2.0',
-          id: message.id,
-          result: {} // Initialize with empty object
-        };
-        
-        // Handle different response types
-        if (typeof response.data === 'string') {
-          // String response - wrap as text content
-          jsonRpcResponse.result = {
-            content: [{ type: 'text', text: response.data }]
-          };
-        } else if (response.data && typeof response.data === 'object') {
-          // Object response - ensure proper structure
-          if (response.data.result) {
-            // It has a result field - keep it
-            jsonRpcResponse.result = response.data.result;
-          } else {
-            // No result field - wrap entire response
-            jsonRpcResponse.result = {
-              content: [{ type: 'text', text: JSON.stringify(response.data) }]
-            };
-          }
-        } else {
-          // Fallback for any other type
-          jsonRpcResponse.result = {
-            content: [{ type: 'text', text: String(response.data) }]
-          };
+        // Add extra debugging for tools/list
+        if (message.method === 'tools/list') {
+          log(`tools/list response received: ${JSON.stringify(response.data, null, 2)}`);
         }
         
-        process.stdout.write(`${JSON.stringify(jsonRpcResponse)}\n`);
-        log(`Sent formatted response for method: ${message.method}`);
+        if (response.data) {
+          process.stdout.write(`${JSON.stringify(response.data)}\n`);
+          log(`Sent server response for ${message.method}`);
+        } else {
+          // Server returned something invalid, create generic response
+          const fallbackResponse = {
+            jsonrpc: '2.0',
+            id: message.id,
+            error: {
+              code: -32603,
+              message: 'Server returned invalid response'
+            }
+          };
+          process.stdout.write(`${JSON.stringify(fallbackResponse)}\n`);
+          log('Sent fallback error response');
+        }
       } catch (error) {
         // Handle errors
-        log(`Error processing message: ${error instanceof Error ? error.message : String(error)}`);
+        log(`Error forwarding request: ${error instanceof Error ? error.message : String(error)}`);
         
-        // Send error response on JSON-RPC format
+        // Send error response in JSON-RPC format
         const errorResponse = {
           jsonrpc: '2.0',
-          id: null,
+          id: message.id ?? null,
           error: {
             code: -32000,
-            message: `Error: ${error instanceof Error ? error.message : String(error)}`
+            message: error instanceof Error ? error.message : String(error)
           }
         };
         
-        // If the original message had an ID, include it in the error response
-        try {
-          const originalMessage = JSON.parse(line);
-          if (originalMessage.id) {
-            errorResponse.id = originalMessage.id;
-          }
-        } catch {} // Ignore parsing errors here
-        
         process.stdout.write(`${JSON.stringify(errorResponse)}\n`);
+        log('Sent error response');
       }
     } catch (error) {
       // Handle parsing errors
       log(`Error parsing message: ${error instanceof Error ? error.message : String(error)}`);
       
-      // Send error response on JSON-RPC format
+      // Send error response in JSON-RPC format
       const errorResponse = {
         jsonrpc: '2.0',
         id: null,
         error: {
-          code: -32000,
-          message: `Error: ${error instanceof Error ? error.message : String(error)}`
+          code: -32700,
+          message: `Parse error: ${error instanceof Error ? error.message : String(error)}`
         }
       };
       

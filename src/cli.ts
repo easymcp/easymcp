@@ -7,25 +7,40 @@ import { startMcpShim } from './index.js';
 // Parse command line arguments
 const argv = yargs(hideBin(process.argv))
   .option('token', {
-    description: 'Authentication token for the hosted MCP server',
+    alias: 't',
     type: 'string',
-    demandOption: true
+    description: 'API token for authentication',
+    default: 'test-token'
+  })
+  .option('server', {
+    alias: 's',
+    type: 'string',
+    description: 'API server URL',
+    default: 'http://localhost:3000'
   })
   .option('debug', {
-    description: 'Enable debug logging',
+    alias: 'd',
     type: 'boolean',
+    description: 'Enable debug mode with verbose logging',
     default: false
   })
   .help()
+  .alias('help', 'h')
   .parseSync();
+
+console.error(`Starting EasyMCP shim with options:
+- Server: ${argv.server}
+- Debug: ${argv.debug ? 'enabled' : 'disabled'}
+- Token: ${argv.token.slice(0, 3)}${'*'.repeat(Math.max(0, argv.token.length - 3))}
+`);
 
 // Start the MCP shim
 startMcpShim({
   token: argv.token,
+  server: argv.server,
   debug: argv.debug
-}).catch(err => {
-  console.error(`Fatal error: ${err.message}`);
-  console.error(err.stack);
+}).catch(error => {
+  console.error('Error running MCP shim:', error);
   process.exit(1);
 });
 
