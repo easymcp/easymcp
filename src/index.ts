@@ -351,13 +351,14 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
               log(`⚠️ Token expired: ${errorMsg}`);
               log('   Please visit https://console.easymcp.net to renew your subscription.');
               
-              // For certain critical errors, throw an error that will be caught in CLI
-              if (message.method === 'tools/list') {
-                throw new McpError(
-                  'Your authentication token has expired. Please renew your subscription.',
-                  ErrorType.AUTH_EXPIRED
-                );
-              }
+              // Display error and exit directly
+              console.error('\n❌ Token Expired: Your EasyMCP subscription has expired.');
+              console.error('Your authentication token is no longer valid because your subscription has ended.');
+              console.error('\nTo continue using EasyMCP:');
+              console.error('  1. Visit https://console.easymcp.net/subscription');
+              console.error('  2. Renew your subscription');
+              console.error('  3. Generate a new token\n');
+              process.exit(1);
             } else if (errorMsg.toLowerCase().includes('limit') || 
                        errorMsg.toLowerCase().includes('quota')) {
               // Usage limits exceeded
@@ -366,27 +367,29 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
               log(`⚠️ Usage limits exceeded: ${errorMsg}`);
               log('   Please visit https://console.easymcp.net to upgrade your plan.');
               
-              // For certain critical errors, throw an error that will be caught in CLI
-              if (message.method === 'tools/list') {
-                throw new McpError(
-                  'You have reached your usage limits. Please upgrade your plan.',
-                  ErrorType.AUTH_LIMITS
-                );
-              }
+              // Display error and exit directly
+              console.error('\n❌ Usage Limits Reached: You have reached your plan limits.');
+              console.error('Your current subscription plan does not allow additional usage at this time.');
+              console.error('\nTo increase your limits:');
+              console.error('  1. Visit https://console.easymcp.net/subscription');
+              console.error('  2. Upgrade to a higher tier plan with increased limits');
+              console.error('  3. Contact support if you need a custom plan\n');
+              process.exit(1);
             } else {
               // Generic auth error (invalid token, etc.)
-              errorMessage = `Authentication failed: ${errorMsg}`;
+              errorMessage = `Authentication failed: Invalid or unrecognized token`;
               errorCode = -32003; // Auth error
               log(`⚠️ Authentication failed: ${errorMsg}`);
               log('   Please check your token and visit https://console.easymcp.net if issues persist.');
               
-              // For certain critical errors, throw an error that will be caught in CLI
-              if (message.method === 'tools/list') {
-                throw new McpError(
-                  'Your authentication token is invalid. Please check or renew your token.',
-                  ErrorType.AUTH_INVALID
-                );
-              }
+              // Display error and exit directly
+              console.error('\n❌ Invalid Token: Your authentication token was rejected.');
+              console.error('This token is not recognized by the EasyMCP server.');
+              console.error('\nTo fix this issue:');
+              console.error('  1. Check that you copied the token correctly');
+              console.error('  2. Generate a new token at https://console.easymcp.net/tokens');
+              console.error('  3. Make sure you are using the correct environment (dev/prod)\n');
+              process.exit(1);
             }
           } else if (error.response.status === 429) {
             // Rate limit error
@@ -395,6 +398,15 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
             log(`Rate limit error: ${error.response.status}`);
             log('⚠️ Rate limit exceeded. You have reached your usage limits.');
             log('   Consider upgrading your plan at https://console.easymcp.net for increased limits.');
+            
+            // Display error and exit directly
+            console.error('\n❌ Rate Limit Exceeded: You have reached your usage limits.');
+            console.error('Your current subscription plan does not allow additional requests at this time.');
+            console.error('\nTo resolve this issue:');
+            console.error('  1. Wait a few minutes and try again');
+            console.error('  2. Visit https://console.easymcp.net/subscription to upgrade your plan');
+            console.error('  3. Contact support if you need a custom plan with higher limits\n');
+            process.exit(1);
           } else if (error.response.status >= 500) {
             // Server error
             errorMessage = `Server error: ${error.response.data?.message || 'Internal server error'}`;
