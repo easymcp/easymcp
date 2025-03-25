@@ -1,6 +1,25 @@
 import { createInterface } from 'node:readline';
 import axios from 'axios';
 
+// Simple error types for better user messages
+export enum ErrorType {
+  CONNECTION = 'CONNECTION',
+  AUTH = 'AUTH',
+  SERVER = 'SERVER',
+  UNKNOWN = 'UNKNOWN'
+}
+
+// Simple error class to help with error handling
+export class McpError extends Error {
+  type: ErrorType;
+  
+  constructor(message: string, type: ErrorType) {
+    super(message);
+    this.name = 'McpError';
+    this.type = type;
+  }
+}
+
 interface McpShimOptions {
   token: string;
   debug: boolean;
@@ -27,6 +46,33 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
     }
   };
   
+  // Check server connection first to provide better error message
+  // But make it non-blocking - just log warnings
+  try {
+    log(`Checking server at ${serverUrl}...`);
+    const checkApi = axios.create({
+      baseURL: serverUrl,
+      timeout: 5000 // Short timeout for initial check
+    });
+    
+    await checkApi.get('/');
+    log('Initial server check successful');
+  } catch (error) {
+    // Only log warnings, don't throw errors which would exit the process
+    log('Initial connection check failed, but continuing anyway');
+    if (axios.isAxiosError(error)) {
+      if (!error.response) {
+        log(`⚠️ Warning: Connection issue - server may be unreachable (${error.message})`);
+      } else if (error.response.status === 401 || error.response.status === 403) {
+        log(`⚠️ Warning: Authentication issue (${error.response.status})`);
+      } else {
+        log(`⚠️ Warning: Server returned status ${error.response.status}`);
+      }
+    } else {
+      log(`⚠️ Warning: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
   // Create readline interface for stdin/stdout communication
   const rl = createInterface({
     input: process.stdin,
@@ -40,7 +86,8 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
-    }
+    },
+    timeout: 30000 // Increase to 30 seconds to avoid client timeouts
   });
   
   log("MCP shim started");
@@ -105,10 +152,39 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
           log('Empty response from server');
         }
       } catch (error) {
-        // Handle request errors
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        log(`Request error: ${errorMessage}`);
-        sendErrorResponse(message.id, -32000, errorMessage);
+        // Handle request errors with more detailed messages
+        let errorMessage: string;
+        let errorCode = -32000;
+        
+        if (axios.isAxiosError(error)) {
+          if (!error.response) {
+            // Network error - no response from server
+            errorMessage = 'Server unreachable. Check network connection.';
+            log(`Network error: ${error.message}`);
+          } else if (error.response.status === 401 || error.response.status === 403) {
+            // Authentication error
+            errorMessage = `Authentication failed: ${error.response.data?.message || 'Invalid token'}`;
+            log(`Auth error: ${error.response.status}`);
+          } else if (error.response.status === 429) {
+            // Rate limit error
+            errorMessage = 'Rate limit exceeded. Please try again later.';
+            log(`Rate limit error: ${error.response.status}`);
+          } else if (error.response.status >= 500) {
+            // Server error
+            errorMessage = `Server error (${error.response.status}): ${error.response.data?.message || 'Internal server error'}`;
+            log(`Server error: ${error.response.status}`);
+          } else {
+            // Other HTTP error
+            errorMessage = `Error (${error.response.status}): ${error.response.data?.message || error.message}`;
+            log(`HTTP error: ${error.response.status}`);
+          }
+        } else {
+          // Non-Axios error
+          errorMessage = error instanceof Error ? error.message : String(error);
+          log(`Request error: ${errorMessage}`);
+        }
+        
+        sendErrorResponse(message.id, errorCode, errorMessage);
       }
     } catch (error) {
       // Handle JSON parsing errors

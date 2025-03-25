@@ -2,7 +2,7 @@
 
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { startMcpShim } from './index.js';
+import { startMcpShim, ErrorType, McpError } from './index.js';
 
 /**
  * EasyMCP CLI - A tool for connecting Claude Desktop to your services
@@ -47,7 +47,36 @@ startMcpShim({
   debug: argv.debug,
   env: argv.env as 'dev' | 'prod'
 }).catch(error => {
-  console.error('Error running MCP shim:', error);
+  if (error instanceof McpError) {
+    // Show user-friendly error message based on error type
+    switch (error.type) {
+      case ErrorType.CONNECTION:
+        console.error('\n❌ Connection Error: Could not connect to the server.');
+        console.error('Please check your internet connection and make sure the server is running.');
+        console.error('For help, visit: https://console.easymcp.net/support\n');
+        break;
+        
+      case ErrorType.AUTH:
+        console.error('\n❌ Authentication Error: Your token was rejected.');
+        console.error('Please check your token and make sure it is valid.');
+        console.error('Need a new token? Visit: https://console.easymcp.net/tokens\n');
+        break;
+        
+      case ErrorType.SERVER:
+        console.error('\n❌ Server Error: The server encountered a problem.');
+        console.error(`Details: ${error.message}`);
+        console.error('Please try again later or check: https://console.easymcp.net/status\n');
+        break;
+        
+      default:
+        console.error(`\n❌ Error: ${error.message}`);
+        console.error('For help, visit: https://console.easymcp.net/support\n');
+    }
+  } else {
+    // Fallback for other errors
+    console.error('Error running MCP shim:', error);
+  }
+  
   process.exit(1);
 });
 
