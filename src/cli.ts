@@ -68,6 +68,33 @@ startMcpShim({
         console.error('\nFor status updates and support, visit: https://console.easymcp.net/status\n');
         break;
         
+      case ErrorType.AUTH_EXPIRED:
+        console.error('\n❌ Token Expired: Your EasyMCP subscription has expired.');
+        console.error('Your authentication token is no longer valid because your subscription has ended.');
+        console.error('\nTo continue using EasyMCP:');
+        console.error('  1. Visit https://console.easymcp.net/subscription');
+        console.error('  2. Renew your subscription');
+        console.error('  3. Generate a new token\n');
+        break;
+        
+      case ErrorType.AUTH_LIMITS:
+        console.error('\n❌ Usage Limits Reached: You have reached your plan limits.');
+        console.error('Your current subscription plan does not allow additional usage at this time.');
+        console.error('\nTo increase your limits:');
+        console.error('  1. Visit https://console.easymcp.net/subscription');
+        console.error('  2. Upgrade to a higher tier plan with increased limits');
+        console.error('  3. Contact support if you need a custom plan\n');
+        break;
+        
+      case ErrorType.AUTH_INVALID:
+        console.error('\n❌ Invalid Token: Your authentication token was rejected.');
+        console.error('This token is not recognized by the EasyMCP server.');
+        console.error('\nTo fix this issue:');
+        console.error('  1. Check that you copied the token correctly');
+        console.error('  2. Generate a new token at https://console.easymcp.net/tokens');
+        console.error('  3. Make sure you are using the correct environment (dev/prod)\n');
+        break;
+        
       case ErrorType.AUTH:
         console.error('\n❌ Authentication Error: Your token was rejected.');
         console.error('This could be because:');

@@ -5,6 +5,9 @@ import axios from 'axios';
 export enum ErrorType {
   CONNECTION = 'CONNECTION',
   AUTH = 'AUTH',
+  AUTH_EXPIRED = 'AUTH_EXPIRED',
+  AUTH_INVALID = 'AUTH_INVALID',
+  AUTH_LIMITS = 'AUTH_LIMITS',
   SERVER = 'SERVER',
   UNKNOWN = 'UNKNOWN'
 }
@@ -136,7 +139,35 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
               log('Returning empty tools list due to server unreachable');
             }
           } catch (error) {
-            // Return empty tools list instead of error
+            // Check for auth errors specifically for tools/list
+            if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+              const errorData = error.response.data;
+              const errorMsg = errorData?.error?.message || errorData?.message || 'Invalid token';
+              
+              // Handle expired token
+              if (errorMsg.toLowerCase().includes('expired')) {
+                throw new McpError(
+                  'Your authentication token has expired. Please renew your subscription.',
+                  ErrorType.AUTH_EXPIRED
+                );
+              } 
+              // Handle usage limits
+              else if (errorMsg.toLowerCase().includes('limit') || errorMsg.toLowerCase().includes('quota')) {
+                throw new McpError(
+                  'You have reached your usage limits. Please upgrade your plan.',
+                  ErrorType.AUTH_LIMITS
+                );
+              }
+              // Handle invalid token
+              else {
+                throw new McpError(
+                  'Your authentication token is invalid. Please check or renew your token.',
+                  ErrorType.AUTH_INVALID
+                );
+              }
+            }
+            
+            // For non-auth errors or connection issues, return empty tools list
             const emptyToolsResponse = {
               jsonrpc: '2.0',
               id: message.id,
@@ -148,27 +179,22 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
             log('Returning empty tools list due to server error');
             
             // Show helpful message about connection issues
-            if (axios.isAxiosError(error)) {
-              if (!error.response) {
-                // This is a connection issue
-                log('\n⚠️ Connection Problem Detected ⚠️');
-                log('-------------------------------');
-                log('EasyMCP cannot connect to the server. Claude will function without tools.');
-                log('\nPossible solutions:');
-                log('1. Check your internet connection');
-                log('2. Ensure the server is running at ' + serverUrl);
-                log('3. Check any firewall settings');
-                log('\nFor help, visit: https://console.easymcp.net/status\n');
-              } else if (error.response.status === 401 || error.response.status === 403) {
-                // Authentication issue
-                log('\n⚠️ Authentication Problem Detected ⚠️');
-                log('----------------------------------');
-                log('Your EasyMCP token was rejected. Claude will function without tools.');
-                log('\nPlease visit https://console.easymcp.net to:');
-                log('• Renew your subscription if expired');
-                log('• Check your usage limits');
-                log('• Get a new API token\n');
-              }
+            if (axios.isAxiosError(error) && !error.response) {
+              // This is a connection issue
+              log('\n⚠️ Connection Problem Detected ⚠️');
+              log('-------------------------------');
+              log('EasyMCP cannot connect to the server. Claude will function without tools.');
+              log('\nPossible solutions:');
+              log('1. Check your internet connection');
+              log('2. Ensure the server is running at ' + serverUrl);
+              log('3. Check any firewall settings');
+              log('\nFor help, visit: https://console.easymcp.net/status\n');
+              
+              // Throw a connection error for the CLI to catch
+              throw new McpError(
+                'Cannot connect to the EasyMCP server. Please check your network and server status.',
+                ErrorType.CONNECTION
+              );
             }
           }
           return;
@@ -203,12 +229,55 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
             log('⚠️ Connection issue detected. Please check your internet connection and server status.');
             log('   If this persists, check https://console.easymcp.net/status for service updates.');
           } else if (error.response.status === 401 || error.response.status === 403) {
-            // Authentication error
-            errorMessage = `Authentication failed: ${error.response.data?.message || 'Invalid token'}`;
-            errorCode = -32003; // Claude uses this for auth errors
-            log(`Auth error: ${error.response.status}`);
-            log('⚠️ Authentication failed. Your token may be expired or invalid.');
-            log('   Please visit https://console.easymcp.net to renew your subscription or get a new token.');
+            // Authentication error - inspect the error message to determine the specific issue
+            const errorData = error.response.data;
+            const errorMsg = errorData?.error?.message || errorData?.message || 'Invalid token';
+            
+            // Determine specific auth error type based on the error message
+            if (errorMsg.toLowerCase().includes('expired')) {
+              // Token has expired
+              errorMessage = 'Your authentication token has expired. Please renew your subscription.';
+              errorCode = -32003; // Auth error
+              log(`⚠️ Token expired: ${errorMsg}`);
+              log('   Please visit https://console.easymcp.net to renew your subscription.');
+              
+              // For certain critical errors, throw an error that will be caught in CLI
+              if (message.method === 'tools/list') {
+                throw new McpError(
+                  'Your authentication token has expired. Please renew your subscription.',
+                  ErrorType.AUTH_EXPIRED
+                );
+              }
+            } else if (errorMsg.toLowerCase().includes('limit') || 
+                       errorMsg.toLowerCase().includes('quota')) {
+              // Usage limits exceeded
+              errorMessage = 'You have reached your usage limits. Please upgrade your plan.';
+              errorCode = -32004; // Rate limit error
+              log(`⚠️ Usage limits exceeded: ${errorMsg}`);
+              log('   Please visit https://console.easymcp.net to upgrade your plan.');
+              
+              // For certain critical errors, throw an error that will be caught in CLI
+              if (message.method === 'tools/list') {
+                throw new McpError(
+                  'You have reached your usage limits. Please upgrade your plan.',
+                  ErrorType.AUTH_LIMITS
+                );
+              }
+            } else {
+              // Generic auth error (invalid token, etc.)
+              errorMessage = `Authentication failed: ${errorMsg}`;
+              errorCode = -32003; // Auth error
+              log(`⚠️ Authentication failed: ${errorMsg}`);
+              log('   Please check your token and visit https://console.easymcp.net if issues persist.');
+              
+              // For certain critical errors, throw an error that will be caught in CLI
+              if (message.method === 'tools/list') {
+                throw new McpError(
+                  'Your authentication token is invalid. Please check or renew your token.',
+                  ErrorType.AUTH_INVALID
+                );
+              }
+            }
           } else if (error.response.status === 429) {
             // Rate limit error
             errorMessage = 'Rate limit exceeded. Please try again later.';
