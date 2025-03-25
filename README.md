@@ -51,10 +51,8 @@ EasyMCP gives you granular control over which tools Claude can access. For each 
 
 - Enable only the specific functions you need
 - Control read/write permissions independently (e.g., allow reading emails but not sending them)
-- Set usage limits for specific tools
 - Manage authentication for each service separately
 
-This flexibility ensures Claude has access to exactly the tools you want - nothing more, nothing less.
 
 ## Plans and Pricing
 
