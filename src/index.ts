@@ -122,6 +122,67 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
           try {
             const response = await api.post('/json-rpc', message);
             
+            // Check for error responses indicating token issues
+            if (response.data?.error) {
+              const error = response.data.error;
+              const errorMsg = error.message || '';
+              
+              // Error detection based on code and message content
+              if (error.code === -32001 || errorMsg.toLowerCase().includes('expired')) {
+                log('\n🚫 Token Expired - Authentication Failure 🚫');
+                log('----------------------------------------------');
+                log('Your EasyMCP token has expired and needs to be renewed.');
+                
+                // Pass through the error to Claude so it shows the MCP as disabled/red
+                sendErrorResponse(message.id, -32001, `Authentication Error: Your token has expired.`);
+                
+                // Also throw the error for CLI
+                throw new McpError(
+                  'Your authentication token has expired. Please renew your subscription.',
+                  ErrorType.AUTH_EXPIRED
+                );
+              } else if (error.code === -32004 || errorMsg.toLowerCase().includes('usage limit') || errorMsg.toLowerCase().includes('upgrade your plan')) {
+                log('\n🚫 Usage Limits Exceeded 🚫');
+                log('---------------------------');
+                log('You have reached your EasyMCP usage limits for this billing period.');
+                
+                // Pass through the error to Claude so it shows the MCP as disabled/red
+                sendErrorResponse(message.id, -32004, `Usage Limit Error: You have reached your usage limits.`);
+                
+                // Also throw the error for CLI
+                throw new McpError(
+                  'You have reached your usage limits. Please upgrade your plan.',
+                  ErrorType.AUTH_LIMITS
+                );
+              } else if (error.code === -32003 || errorMsg.toLowerCase().includes('invalid token') || 
+                         (error.code === -32600 && errorMsg.toLowerCase().includes('unauthorized'))) {
+                log('\n🚫 Invalid Authentication Token 🚫');
+                log('--------------------------------');
+                log('Your EasyMCP token was not recognized or is invalid.');
+                
+                // Pass through the error to Claude so it shows the MCP as disabled/red
+                sendErrorResponse(message.id, -32003, `Authentication Error: Invalid or unrecognized token.`);
+                
+                // Also throw the error for CLI
+                throw new McpError(
+                  'Your authentication token is invalid. Please check or renew your token.',
+                  ErrorType.AUTH_INVALID
+                );
+              }
+              
+              // For other errors, return an empty tool list but log the error
+              log(`⚠️ Server returned an error: ${errorMsg}`);
+              const emptyToolsResponse = {
+                jsonrpc: '2.0',
+                id: message.id,
+                result: {
+                  tools: []
+                }
+              };
+              process.stdout.write(`${JSON.stringify(emptyToolsResponse)}\n`);
+              return;
+            }
+            
             if (response.data) {
               // Send response back to Claude
               process.stdout.write(`${JSON.stringify(response.data)}\n`);
@@ -140,34 +201,102 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
             }
           } catch (error) {
             // Check for auth errors specifically for tools/list
-            if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
-              const errorData = error.response.data;
-              const errorMsg = errorData?.error?.message || errorData?.message || 'Invalid token';
-              
-              // Handle expired token
-              if (errorMsg.toLowerCase().includes('expired')) {
-                throw new McpError(
-                  'Your authentication token has expired. Please renew your subscription.',
-                  ErrorType.AUTH_EXPIRED
-                );
-              } 
-              // Handle usage limits
-              else if (errorMsg.toLowerCase().includes('limit') || errorMsg.toLowerCase().includes('quota')) {
-                throw new McpError(
-                  'You have reached your usage limits. Please upgrade your plan.',
-                  ErrorType.AUTH_LIMITS
-                );
+            if (axios.isAxiosError(error)) {
+              // If we have an error response, check for specific error codes
+              if (error.response) {
+                const status = error.response.status;
+                const errorData = error.response.data?.error || error.response.data;
+                const errorMsg = errorData?.message || '';
+                
+                // Handle token expiration (401/403 with specific messages)
+                if ((status === 401 || status === 403) && 
+                    (errorMsg.toLowerCase().includes('expired') || errorData?.code === -32001)) {
+                  log('\n🚫 Token Expired - Authentication Failure 🚫');
+                  log('----------------------------------------------');
+                  log('Your EasyMCP token has expired and needs to be renewed.');
+                  
+                  // Pass through the error to Claude so it shows the MCP as disabled/red
+                  sendErrorResponse(message.id, -32001, `Authentication Error: Your token has expired.`);
+                  
+                  // Also throw the error for CLI
+                  throw new McpError(
+                    'Your authentication token has expired. Please renew your subscription.',
+                    ErrorType.AUTH_EXPIRED
+                  );
+                } 
+                // Handle usage limits
+                else if ((status === 403 || status === 429) && 
+                        (errorMsg.toLowerCase().includes('limit') || 
+                         errorMsg.toLowerCase().includes('quota') || 
+                         errorData?.code === -32004 || 
+                         errorData?.code === -32029)) {
+                  log('\n🚫 Usage Limits Exceeded 🚫');
+                  log('---------------------------');
+                  log('You have reached your EasyMCP usage limits for this billing period.');
+                  
+                  // Pass through the error to Claude so it shows the MCP as disabled/red
+                  sendErrorResponse(message.id, -32004, `Usage Limit Error: You have reached your usage limits.`);
+                  
+                  // Also throw the error for CLI
+                  throw new McpError(
+                    'You have reached your usage limits. Please upgrade your plan.',
+                    ErrorType.AUTH_LIMITS
+                  );
+                }
+                // Handle invalid token
+                else if ((status === 401 || status === 403) && 
+                        (errorMsg.toLowerCase().includes('invalid') || 
+                         errorData?.code === -32003)) {
+                  log('\n🚫 Invalid Authentication Token 🚫');
+                  log('--------------------------------');
+                  log('Your EasyMCP token was not recognized or is invalid.');
+                  
+                  // Pass through the error to Claude so it shows the MCP as disabled/red
+                  sendErrorResponse(message.id, -32003, `Authentication Error: Invalid or unrecognized token.`);
+                  
+                  // Also throw the error for CLI
+                  throw new McpError(
+                    'Your authentication token is invalid. Please check or renew your token.',
+                    ErrorType.AUTH_INVALID
+                  );
+                }
+                // Any other auth error
+                else if (status === 401 || status === 403) {
+                  log('\n🚫 Authentication Error 🚫');
+                  log('-----------------------');
+                  log(`The server rejected your authentication: ${errorMsg}`);
+                  
+                  // Pass through the error to Claude so it shows the MCP as disabled/red
+                  sendErrorResponse(message.id, -32003, `Authentication Error: ${errorMsg}`);
+                  
+                  // Also throw the error for CLI
+                  throw new McpError(
+                    `Authentication failed: ${errorMsg}`,
+                    ErrorType.AUTH
+                  );
+                }
               }
-              // Handle invalid token
-              else {
+              // Handle connection issues
+              else if (!error.response) {
+                log('\n⚠️ Connection Issue - Server Unreachable ⚠️');
+                log('------------------------------------------');
+                log('EasyMCP cannot connect to the server. Please check your:');
+                log('1. Internet connection');
+                log('2. Server status at ' + serverUrl);
+                log('3. Firewall settings');
+                
+                // Pass through the error to Claude so it shows the MCP as disabled/red
+                sendErrorResponse(message.id, -32001, `Connection Error: Cannot connect to the EasyMCP server.`);
+                
+                // Also throw the error for CLI
                 throw new McpError(
-                  'Your authentication token is invalid. Please check or renew your token.',
-                  ErrorType.AUTH_INVALID
+                  'Cannot connect to the EasyMCP server. Please check your network and server status.',
+                  ErrorType.CONNECTION
                 );
               }
             }
             
-            // For non-auth errors or connection issues, return empty tools list
+            // For non-auth errors or other errors, return empty tools list
             const emptyToolsResponse = {
               jsonrpc: '2.0',
               id: message.id,
@@ -177,25 +306,6 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
             };
             process.stdout.write(`${JSON.stringify(emptyToolsResponse)}\n`);
             log('Returning empty tools list due to server error');
-            
-            // Show helpful message about connection issues
-            if (axios.isAxiosError(error) && !error.response) {
-              // This is a connection issue
-              log('\n⚠️ Connection Problem Detected ⚠️');
-              log('-------------------------------');
-              log('EasyMCP cannot connect to the server. Claude will function without tools.');
-              log('\nPossible solutions:');
-              log('1. Check your internet connection');
-              log('2. Ensure the server is running at ' + serverUrl);
-              log('3. Check any firewall settings');
-              log('\nFor help, visit: https://console.easymcp.net/status\n');
-              
-              // Throw a connection error for the CLI to catch
-              throw new McpError(
-                'Cannot connect to the EasyMCP server. Please check your network and server status.',
-                ErrorType.CONNECTION
-              );
-            }
           }
           return;
         }
