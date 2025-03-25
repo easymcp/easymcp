@@ -8,15 +8,15 @@ EasyMCP is a turnkey solution that lets Claude Desktop and Cursor access externa
 
 ## Why Use EasyMCP?
 
-- **Simple**: One command to install, zero configuration required
-- **Powerful**: Easy access to search, email, weather, and more tools
-- **Secure**: Your credentials are stored securely in the cloud
-- **Reliable**: Professionally maintained infrastructure
+- **Simple**: One command to install, no client configuration required
+- **Configurable**: Choose the services and functions you want to use
+- **Secure**: Credentials stored securely in the cloud
 - **Expandable**: New tools and integrations added regularly
+- **Reliable**: Professionally maintained infrastructure
 
 ## Getting Started
 
-1. Get your token at [easymcp.net](https://easymcp.net)
+1. Go to [easymcp.net](https://easymcp.net) to get your token and pick your services
 2. Just add this config to Claude Desktop and/or Cursor:
 
 ```json
@@ -42,7 +42,7 @@ EasyMCP works with systems that support the Model Context Protocol (MCP):
 - **Claude Desktop**: The official desktop application from Anthropic
 - **Cursor**: An AI-powered code editor with Claude integration
 
-Currently, these are the only systems that support MCP servers. As more applications adopt MCP, EasyMCP will be compatible with them as well.
+As more applications adopt MCP, EasyMCP will be compatible with them as well.
 
 ## How It Works
 
