@@ -1,49 +1,56 @@
 # EasyMCP
 
-A lightweight MCP (Model Context Protocol) shim for Claude Desktop that connects to a hosted MCP server.
+The simplest way to connect Claude Desktop and Cursor to external tools and services.
 
-## Usage
+## What is EasyMCP?
 
-EasyMCP is designed to be used directly via `npx` without installation:
+EasyMCP is a turnkey solution that lets Claude Desktop access powerful external tools and APIs with zero configuration. Stop struggling with complex MCP server setup and get instant access to a growing library of tools.
 
-```bash
-npx easymcp --token=YOUR_TOKEN
-```
+## Why Use EasyMCP?
 
-## Configuration
+- **Simple**: One command to install, zero configuration required
+- **Powerful**: Instant access to search, email, weather, and more tools
+- **Secure**: Your credentials are stored securely in the cloud
+- **Reliable**: Professionally maintained infrastructure
+- **Expandable**: New tools and integrations added regularly
 
-To configure Claude Desktop to use EasyMCP, add the following to your Claude Desktop config:
+## Getting Started
+
+1. Get your token at [easymcp.net](https://easymcp.net)
+2. Add to Claude Desktop and/or Cursor in two simple steps:
 
 ```json
 {
-  "mcpServers": {
-    "easymcp": {
-      "command": "npx",
-      "args": ["easymcp", "--token=YOUR_TOKEN"]
+    "mcpServers": {
+      "EasyMCP.net": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["@easymcp/easymcp", "--token=YOUR_TOKEN"]
+      }
     }
-  }
 }
 ```
 
-Replace `YOUR_TOKEN` with the token provided by the EasyMCP service.
+That's it! Claude will now have access to all services included in your plan.
 
-## Features
+## Benefits
 
-- Securely connects Claude Desktop to a hosted MCP server
-- Provides access to personalized AI tools based on your connected services
-- Minimal local footprint - runs on demand via npx
-- All sensitive logic and credentials are stored securely on the server
+- **Saves Time**: Skip the complicated setup of local MCP servers
+- **Future-Proof**: Automatically updated with new tools and features
+- **Cross-Platform**: Works on Windows, Mac, and Linux
+- **Low Resource Usage**: Minimal local footprint
 
-## Options
+## How It Works
 
-- `--token`: (Required) Your authentication token
-- `--debug`: (Optional) Enable debug logging
+EasyMCP acts as a bridge between Claude Desktop and our secure cloud infrastructure. When Claude needs to use a tool, the request is securely forwarded to our servers where the actual processing happens.
 
-## Example
+## Plans and Pricing
 
-```bash
-npx easymcp --token=abc123 --debug
-```
+Visit [easymcp.net](https://easymcp.net) to see available plans and pricing.
+
+## Support
+
+Need help? Visit [easymcp.net/support](https://easymcp.net/support)
 
 ## License
 
