@@ -46,33 +46,6 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
     }
   };
   
-  // Check server connection first to provide better error message
-  // But make it non-blocking - just log warnings
-  try {
-    log(`Checking server at ${serverUrl}...`);
-    const checkApi = axios.create({
-      baseURL: serverUrl,
-      timeout: 5000 // Short timeout for initial check
-    });
-    
-    await checkApi.get('/');
-    log('Initial server check successful');
-  } catch (error) {
-    // Only log warnings, don't throw errors which would exit the process
-    log('Initial connection check failed, but continuing anyway');
-    if (axios.isAxiosError(error)) {
-      if (!error.response) {
-        log(`⚠️ Warning: Connection issue - server may be unreachable (${error.message})`);
-      } else if (error.response.status === 401 || error.response.status === 403) {
-        log(`⚠️ Warning: Authentication issue (${error.response.status})`);
-      } else {
-        log(`⚠️ Warning: Server returned status ${error.response.status}`);
-      }
-    } else {
-      log(`⚠️ Warning: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-  
   // Create readline interface for stdin/stdout communication
   const rl = createInterface({
     input: process.stdin,
@@ -87,7 +60,7 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    timeout: 30000 // Increase to 30 seconds to avoid client timeouts
+    timeout: 60000 // Increase to 60 seconds for long operations
   });
   
   log("MCP shim started");
@@ -140,12 +113,77 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
       // Forward all other requests to the server
       try {
         log(`Forwarding: ${message.method}`);
+        
+        // Special handling for tools/list to avoid error when server is offline
+        if (message.method === 'tools/list') {
+          try {
+            const response = await api.post('/json-rpc', message);
+            
+            if (response.data) {
+              // Send response back to Claude
+              process.stdout.write(`${JSON.stringify(response.data)}\n`);
+              log(`Response sent for: ${message.method}`);
+            } else {
+              // Return empty tools list instead of error
+              const emptyToolsResponse = {
+                jsonrpc: '2.0',
+                id: message.id,
+                result: {
+                  tools: []
+                }
+              };
+              process.stdout.write(`${JSON.stringify(emptyToolsResponse)}\n`);
+              log('Returning empty tools list due to server unreachable');
+            }
+          } catch (error) {
+            // Return empty tools list instead of error
+            const emptyToolsResponse = {
+              jsonrpc: '2.0',
+              id: message.id,
+              result: {
+                tools: []
+              }
+            };
+            process.stdout.write(`${JSON.stringify(emptyToolsResponse)}\n`);
+            log('Returning empty tools list due to server error');
+            
+            // Show helpful message about connection issues
+            if (axios.isAxiosError(error)) {
+              if (!error.response) {
+                // This is a connection issue
+                log('\n⚠️ Connection Problem Detected ⚠️');
+                log('-------------------------------');
+                log('EasyMCP cannot connect to the server. Claude will function without tools.');
+                log('\nPossible solutions:');
+                log('1. Check your internet connection');
+                log('2. Ensure the server is running at ' + serverUrl);
+                log('3. Check any firewall settings');
+                log('\nFor help, visit: https://console.easymcp.net/status\n');
+              } else if (error.response.status === 401 || error.response.status === 403) {
+                // Authentication issue
+                log('\n⚠️ Authentication Problem Detected ⚠️');
+                log('----------------------------------');
+                log('Your EasyMCP token was rejected. Claude will function without tools.');
+                log('\nPlease visit https://console.easymcp.net to:');
+                log('• Renew your subscription if expired');
+                log('• Check your usage limits');
+                log('• Get a new API token\n');
+              }
+            }
+          }
+          return;
+        }
+        
+        // For all other requests, handle normally
         const response = await api.post('/json-rpc', message);
         
         if (response.data) {
           // Send response back to Claude
           process.stdout.write(`${JSON.stringify(response.data)}\n`);
           log(`Response sent for: ${message.method}`);
+          
+          // Don't log anything for method not found errors
+          // Just silently forward the response to Claude
         } else {
           // Handle empty response
           sendErrorResponse(message.id, -32603, 'Server returned empty response');
@@ -154,33 +192,56 @@ export async function startMcpShim(options: McpShimOptions): Promise<void> {
       } catch (error) {
         // Handle request errors with more detailed messages
         let errorMessage: string;
-        let errorCode = -32000;
+        let errorCode: number;
         
         if (axios.isAxiosError(error)) {
           if (!error.response) {
             // Network error - no response from server
-            errorMessage = 'Server unreachable. Check network connection.';
+            errorMessage = 'Server unreachable. Please check your network connection and server status.';
+            errorCode = -32001; // Standard JSON-RPC timeout error
             log(`Network error: ${error.message}`);
+            log('⚠️ Connection issue detected. Please check your internet connection and server status.');
+            log('   If this persists, check https://console.easymcp.net/status for service updates.');
           } else if (error.response.status === 401 || error.response.status === 403) {
             // Authentication error
             errorMessage = `Authentication failed: ${error.response.data?.message || 'Invalid token'}`;
+            errorCode = -32003; // Claude uses this for auth errors
             log(`Auth error: ${error.response.status}`);
+            log('⚠️ Authentication failed. Your token may be expired or invalid.');
+            log('   Please visit https://console.easymcp.net to renew your subscription or get a new token.');
           } else if (error.response.status === 429) {
             // Rate limit error
             errorMessage = 'Rate limit exceeded. Please try again later.';
+            errorCode = -32029; // Custom code for rate limiting
             log(`Rate limit error: ${error.response.status}`);
+            log('⚠️ Rate limit exceeded. You have reached your usage limits.');
+            log('   Consider upgrading your plan at https://console.easymcp.net for increased limits.');
           } else if (error.response.status >= 500) {
             // Server error
-            errorMessage = `Server error (${error.response.status}): ${error.response.data?.message || 'Internal server error'}`;
+            errorMessage = `Server error: ${error.response.data?.message || 'Internal server error'}`;
+            errorCode = -32000; // Standard JSON-RPC server error
             log(`Server error: ${error.response.status}`);
+            log('⚠️ EasyMCP server encountered an internal error.');
+            log('   This is likely temporary. Please try again later or check status at https://console.easymcp.net/status');
+          } else if (error.response?.status === 404 || 
+                   (error.response?.data?.error?.code === -32601)) {
+            // Method not found error - silently return without logging
+            const methodName = message.method;
+            errorMessage = `Method not found: ${methodName}`;
+            errorCode = -32601;
+            
+            // Don't log anything for method not found errors
           } else {
             // Other HTTP error
-            errorMessage = `Error (${error.response.status}): ${error.response.data?.message || error.message}`;
+            errorMessage = `Request failed: ${error.response.data?.message || error.message}`;
+            errorCode = -32602; // Invalid params
             log(`HTTP error: ${error.response.status}`);
+            log(`⚠️ Request to server failed with status ${error.response.status}`);
           }
         } else {
           // Non-Axios error
           errorMessage = error instanceof Error ? error.message : String(error);
+          errorCode = -32603; // Internal JSON-RPC error
           log(`Request error: ${errorMessage}`);
         }
         

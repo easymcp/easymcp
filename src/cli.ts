@@ -41,6 +41,15 @@ const argv = yargs(hideBin(process.argv))
 const maskedToken = maskToken(argv.token);
 console.error(`Starting EasyMCP with token: ${maskedToken} (${argv.debug ? 'debug mode' : 'normal mode'}, environment: ${argv.env})`);
 
+// Show helpful message in debug mode
+if (argv.debug) {
+  console.error('\nEasyMCP is running in debug mode. Look for [DEBUG] messages for detailed information.');
+  console.error('If you encounter connection issues:');
+  console.error('1. Check that your server is running at the correct address');
+  console.error('2. Verify your token at https://console.easymcp.net');
+  console.error('3. Check your network connection\n');
+}
+
 // Start the MCP shim
 startMcpShim({
   token: argv.token,
@@ -52,24 +61,35 @@ startMcpShim({
     switch (error.type) {
       case ErrorType.CONNECTION:
         console.error('\n❌ Connection Error: Could not connect to the server.');
-        console.error('Please check your internet connection and make sure the server is running.');
-        console.error('For help, visit: https://console.easymcp.net/support\n');
+        console.error('Please check:');
+        console.error('  1. Your internet connection');
+        console.error('  2. That the server is running at the correct address');
+        console.error('  3. Any firewall settings that might be blocking the connection');
+        console.error('\nFor status updates and support, visit: https://console.easymcp.net/status\n');
         break;
         
       case ErrorType.AUTH:
         console.error('\n❌ Authentication Error: Your token was rejected.');
-        console.error('Please check your token and make sure it is valid.');
-        console.error('Need a new token? Visit: https://console.easymcp.net/tokens\n');
+        console.error('This could be because:');
+        console.error('  1. Your token has expired');
+        console.error('  2. Your subscription needs renewal');
+        console.error('  3. You\'ve reached your usage limits');
+        console.error('\nPlease visit https://console.easymcp.net to:');
+        console.error('  • Renew your subscription');
+        console.error('  • Upgrade your access tier');
+        console.error('  • Get a new API token\n');
         break;
         
       case ErrorType.SERVER:
-        console.error('\n❌ Server Error: The server encountered a problem.');
+        console.error('\n❌ Server Error: The EasyMCP server encountered a problem.');
         console.error(`Details: ${error.message}`);
-        console.error('Please try again later or check: https://console.easymcp.net/status\n');
+        console.error('\nThis is likely a temporary issue. Please try again later.');
+        console.error('For server status and updates, check: https://console.easymcp.net/status\n');
         break;
         
       default:
         console.error(`\n❌ Error: ${error.message}`);
+        console.error('If this problem persists, please contact support.');
         console.error('For help, visit: https://console.easymcp.net/support\n');
     }
   } else {
