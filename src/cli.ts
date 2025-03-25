@@ -4,19 +4,21 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { startMcpShim } from './index.js';
 
+/**
+ * EasyMCP CLI - A tool for connecting Claude Desktop to your services
+ * 
+ * Usage: 
+ *   npx @easymcp/easymcp --token=YOUR_TOKEN [--debug]
+ */
+
 // Parse command line arguments
 const argv = yargs(hideBin(process.argv))
   .option('token', {
     alias: 't',
     type: 'string',
     description: 'API token for authentication',
-    default: 'test-token'
-  })
-  .option('server', {
-    alias: 's',
-    type: 'string',
-    description: 'API server URL',
-    default: 'http://localhost:3000'
+    default: 'test-token',
+    demandOption: true
   })
   .option('debug', {
     alias: 'd',
@@ -28,22 +30,21 @@ const argv = yargs(hideBin(process.argv))
   .alias('help', 'h')
   .parseSync();
 
-console.error(`Starting EasyMCP shim with options:
-- Server: ${argv.server}
-- Debug: ${argv.debug ? 'enabled' : 'disabled'}
-- Token: ${argv.token.slice(0, 3)}${'*'.repeat(Math.max(0, argv.token.length - 3))}
-`);
+// Mask token in logs for security
+const maskedToken = maskToken(argv.token);
+console.error(`Starting EasyMCP with token: ${maskedToken} (${argv.debug ? 'debug mode' : 'normal mode'})`);
 
 // Start the MCP shim
 startMcpShim({
   token: argv.token,
-  server: argv.server,
   debug: argv.debug
 }).catch(error => {
   console.error('Error running MCP shim:', error);
   process.exit(1);
 });
 
-// Add this to keep the Node.js event loop busy
-process.stdin.resume();
-console.error("CLI started, process should stay alive"); 
+// Utility function to mask tokens in logs
+function maskToken(token: string): string {
+  if (token.length <= 4) return '*'.repeat(token.length);
+  return token.slice(0, 4) + '*'.repeat(Math.max(0, token.length - 4));
+} 
