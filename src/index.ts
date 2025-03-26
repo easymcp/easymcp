@@ -32,7 +32,7 @@ interface McpShimOptions {
 // Add environment configuration
 const ENV_CONFIG = {
   dev: 'http://localhost:3000',
-  prod: 'https://api.easymcp.net'
+  prod: 'https://mcp.easymcp.net'
 } as const;
 
 /**
